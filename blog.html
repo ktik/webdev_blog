@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+
+<html>
+	<head>
+		<link type="text/css" rel="stylesheet" href="/stylesheets/main.css">
+		<title>My Blog</title>
+	</head>
+	<body>
+		<div class="main-title">Kartik's blog posts</div>
+		
+		{% for post in posts %}
+			<div class="post">
+				<div class="post-title">{{post.subject}}</div>
+				<div class="post-date">{{post.created}}</div>
+				<hr>
+				<div class="post-content">{{post.content}}</div>
+			</div>
+		{% endfor %}
+	</body>
+
+</html>
