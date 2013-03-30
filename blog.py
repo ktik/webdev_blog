@@ -7,7 +7,7 @@ import hmac
 import string
 import time
 import json
-
+from google.appengine.api import memcache
 from google.appengine.ext import db
 
 jinja_environment = jinja2.Environment(
@@ -32,6 +32,29 @@ def valid_password(pwd):
 
 def valid_email(email):
     return not email or EMAIL_RE.match(email)
+
+def load_front_page(update=False):
+	posts = memcache.get('blog')
+	if not update and posts:
+		return posts
+	else:
+		posts = db.GqlQuery("SELECT * FROM Entry ORDER BY created DESC")
+		posts = list(posts)
+		memcache.set('blog', posts)
+		memcache.set('time', time.time())
+		return posts
+
+def load_blog_post(post_id, update=False):
+	post = memcache.get('post_'+post_id)
+	if not update and post:
+		return post
+	else:
+		post = Entry.get_by_id(int(post_id))
+		#post = list(post)
+		memcache.set('post_'+post_id, post)
+		memcache.set('time_post_'+post_id, time.time())
+		return post
+
 
 class Entry(db.Model):
 	entry_id = db.IntegerProperty()
@@ -72,6 +95,7 @@ class NewPost(Handler):
 			#post = db.GqlQuery("SELECT * FROM Entry WHERE ID=:1", )
 
 			myID = str(e.key().id())
+			load_front_page(True)
 			self.redirect("/blog/%s" %myID)
 			#self.write("thanks!")
 		else:
@@ -80,8 +104,9 @@ class NewPost(Handler):
 
 class Blog(Handler):
 	def get(self):
-		posts = db.GqlQuery("SELECT * FROM Entry ORDER BY created DESC")
-		self.render("blog.html", posts=posts)
+		posts = load_front_page(False)
+		time_since = int(time.time() - memcache.get('time'))
+		self.render("blog.html", posts=posts, time=time_since)
 
 class BlogJson(Handler):
 	def get(self):
@@ -112,11 +137,9 @@ class PermalinkJson(Handler):
 
 class PostHandler(Handler):
 	def get(self, post_id):
-		#self.write("Hello!")
-		#post = db.GqlQuery("Select * from Entry WHERE ID=:1", post_id)
-		post = Entry.get_by_id(int(post_id))
-		#post = db.GqlQuery("SELECT * from Entry WHERE ID=:1", post_id)
-		self.render("post.html", post=post)
+		post = load_blog_post(post_id)
+		time_since = int(time.time() - memcache.get('time_post_'+post_id))
+		self.render("post.html", post=post, time=time_since)
 
 class Signup(Handler):
 
@@ -215,6 +238,11 @@ class Welcome(Handler):
 		else:
 			self.response.out.write("<h2>Welcome, %s!</h2>" %userid)
 
+class FlushCache(Handler):
+	def get(self):
+		memcache.flush_all()
+		self.redirect('/blog/')
+
 class Logout(Handler):
 
 	def get(self):
@@ -231,6 +259,7 @@ app = webapp2.WSGIApplication([('/blog/newpost', NewPost),
 								('/blog/welcome', Welcome),
 								('/blog/login', Login),
 								('/blog/logout', Logout),
+								('/blog/flush', FlushCache),
 								('/blog/?', Blog),
 								('/blog/.json', BlogJson),
 								('/blog/(.*).json', PermalinkJson),

@@ -99,8 +99,8 @@ input[type=submit] {
 }
 
 .post-date {
-    position: absolute;
-    right: 0px;
+    position: relative;
+    right: -600px;
     bottom: 0px;
     color: #999;
 
