@@ -5,6 +5,8 @@ import re
 import random
 import hmac
 import string
+import time
+import json
 
 from google.appengine.ext import db
 
@@ -80,6 +82,33 @@ class Blog(Handler):
 	def get(self):
 		posts = db.GqlQuery("SELECT * FROM Entry ORDER BY created DESC")
 		self.render("blog.html", posts=posts)
+
+class BlogJson(Handler):
+	def get(self):
+		allposts = db.GqlQuery("SELECT * FROM Entry")
+		postsjson = []
+		for post in allposts:
+			d={}
+			d['subject'] = post.subject
+			d['content'] = post.content
+			d['created'] = 	post.created.strftime("%a %b %d %H:%M:%S %Y")
+			postsjson.append(d)
+
+		j = json.dumps(postsjson)
+		self.response.headers['Content-Type'] = "application/json; charset=utf-8"
+		self.response.out.write(j)
+
+class PermalinkJson(Handler):
+	def get(self, post_id):
+		post = Entry.get_by_id(int(post_id))
+		d={}
+		d['subject'] = post.subject
+		d['content'] = post.content
+		d['created'] = 	post.created.strftime("%a %b %d %H:%M:%S %Y")
+		j = json.dumps(d)
+		self.response.headers['Content-Type'] = "application/json; charset=utf-8"
+		self.response.out.write(j)
+
 
 class PostHandler(Handler):
 	def get(self, post_id):
@@ -202,7 +231,9 @@ app = webapp2.WSGIApplication([('/blog/newpost', NewPost),
 								('/blog/welcome', Welcome),
 								('/blog/login', Login),
 								('/blog/logout', Logout),
-								('/blog', Blog),
+								('/blog/?', Blog),
+								('/blog/.json', BlogJson),
+								('/blog/(.*).json', PermalinkJson),
 								('/blog/(.*)', PostHandler)
 								],
 								debug=True)
